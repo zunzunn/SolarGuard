@@ -4,11 +4,11 @@ Build an hourly dataset from NOAA GOES X-ray observations with a forward-looking
 
 ## Data sources and format
 
-- **Observations:** NOAA NCEI GOES XRS Level 2 science-quality `avg1m` archives. The input is NetCDF and contains 1-minute X-ray irradiances; the pipeline reads the long wavelength XRS-B flux channel (`xrsb_flux`, W/m²). Yearly files are discovered from the public archive directory listings.
+- **Observations:** NOAA NCEI GOES XRS Level 2 science-quality `avg1m` archives. The input is NetCDF and contains 1-minute X-ray irradiances; the pipeline reads the long wavelength XRS-B flux channel (`xrsb_flux`, W/m²). It checks GOES-13–15 legacy science-quality archives and GOES-16–19 GOES-R archives, discovering yearly or mission-span files from their public directory listings.
 - **Flare events:** NOAA NCEI's mission-length science-quality GOES flare report in CSV, with accompanying product documentation. It combines GOES flare-summary data and SWPC event reports. Event times and peak irradiance/class are used to identify M1+ peaks.
 - **Window:** Defaults to 2016-11-18 inclusive through 2026-11-17 inclusive. Use `--end` as an exclusive UTC date to change it.
 
-The last-ten-year window overlaps the pre-GOES-R mission. The fetcher checks the GOES-13 through GOES-19 archive trees; archive coverage is not uniform across satellites or years. Inspect the quality report's coverage and downloaded inputs before relying on the early part of the window. NOAA archive updates can lag the present date.
+The last-ten-year window crosses the GOES-13–15 to GOES-R transition. Those satellite generations have different calibration histories; NCEI publishes science-quality products and documentation, but inspect the quality report and source satellite coverage before comparing measurements across handoffs. Archive coverage is not uniform, and updates can lag the present date.
 
 ## Setup and run
 
@@ -40,6 +40,7 @@ Label definition: a row at hour boundary `t` is positive if a catalog flare peak
 - [NOAA SWPC GOES X-ray Flux data and measurement notes](https://www.spaceweather.gov/products/goes-x-ray-flux)
 - [NOAA NCEI GOES-R EXIS/XRS data access](https://www.ncei.noaa.gov/products/goes-r-extreme-ultraviolet-xray-irradiance)
 - [NOAA NCEI GOES-1–15 space-weather instrument archives](https://www.ncei.noaa.gov/products/goes-1-15/space-weather-instruments)
+- [NOAA NCEI GOES-1–15 science-quality XRS NetCDF archive and README](https://www.ncei.noaa.gov/data/goes-space-environment-monitor/access/science/xrs/)
 - [NOAA NCEI GOES Flare Report README (CSV and NetCDF formats, input sources, event definitions)](https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes16/l2/docs/GOES_Flare_Report_ReadMe.pdf)
 - [NOAA NCEI science-quality flare-report CSV directory](https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/multi/l2/data/xrsf-l2-flrpt_science/csv/)
 - [NOAA GOES-R XRS L2 examples: reading the flare-report CSV](https://cires-stp.github.io/goesr-spwx-examples/examples/exis/flrpt_example_csv.html)
