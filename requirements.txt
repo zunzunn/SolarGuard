@@ -1,0 +1,6 @@
+pandas>=2.2,<3
+numpy>=1.26,<3
+xarray>=2024.10
+netCDF4>=1.7
+requests>=2.32
+beautifulsoup4>=4.12
