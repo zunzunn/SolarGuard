@@ -1,4 +1,29 @@
-# SolarGuard AI — Phase 1 data pipeline
+# SolarGuard AI
+
+## Project roadmap and handoff
+
+**Project goal:** Estimate the probability of at least one M1.0-or-stronger solar flare in the 24 hours after the latest completed hour, using GOES X-ray flux. This is a research prototype, not an operational space-weather warning service.
+
+**Current state (2026-11-18):** Phases 1–4 are implemented. Phase 5 deployment files are implemented, but the Docker image has not been built or run because Docker was unavailable in the previous development environment. The frontend production build succeeded earlier; its browser preview was blank and still needs a runtime check. The API and dashboard currently use the historical archive snapshot; they do not fetch current SWPC observations.
+
+| Phase | Status | Deliverable / handoff |
+|---|---|---|
+| 0. Define scope and evaluation guardrails | Complete | Predict next-24-hour M+ occurrence; use chronological splits; make rarity, BSS/TSS, calibration, and risk bands visible; label outputs experimental. |
+| 1. Build the historical dataset | Complete | `src/build_dataset.py` downloads/reads NOAA GOES XRS and flare records, aligns UTC hours, applies coverage checks, creates leakage-safe next-24-hour labels, and writes the dataset and quality report. See the data-pipeline instructions below. |
+| 2. Establish forecasting baselines | Complete | `src/train_baseline.py` compares logistic regression, histogram gradient boosting, and training climatology with chronological train/validation/test partitions and 24-hour purges. Calibration and threshold selection use validation only. BSS/TSS and the reliability diagram are reported. |
+| 3. Serve forecasts through an API | Complete | `api/main.py` exposes `/health`, `/history`, `/evaluation`, `/predict`, and `/predict/latest`. The prediction endpoint accepts completed hourly history and returns a calibrated probability, risk band, threshold, and forecast window. |
+| 4. Build the dashboard | Implemented; browser runtime check pending | `frontend/` shows the archive forecast, seven-day XRS-B chart, held-out BSS/TSS, and test label prevalence. Previous browser preview was blank; confirm JavaScript rendering and API loading before calling this phase fully verified. |
+| 5. Package a local deployment | Implemented; Docker run pending | `Dockerfile` and `compose.yaml` build one service for the API and dashboard. From the repository root, run `docker compose up --build`; open `http://localhost:8000`. Build and smoke-test when Docker is available. |
+| 6. Add current NOAA observations | Planned; next implementation step | Consume NOAA SWPC's public GOES primary XRS JSON feed, inspect the live payload, select the 0.1–0.8 nm band, aggregate minute observations into completed UTC hours using the same 45/60-minute coverage rule, and pass at least 25 consecutive hourly samples through the existing feature and prediction code. Add a source timestamp, coverage/staleness checks, and a separate live endpoint. Keep current telemetry visibly distinct from historical test results; assess the archive-to-live distribution shift before presenting live probabilities as calibrated. |
+| 7. Strengthen scientific evaluation | Planned | Add rolling-origin / multiple-period backtests and inspect performance by satellite era and activity level. Any candidate-model comparison must select models, calibrators, and thresholds with training/validation data only; preserve a final untouched chronological test period. Report BSS, TSS, reliability, and positive prevalence rather than accuracy alone. |
+| 8. Harden operations and reproducibility | Planned | Add automated checks for data schema, ordering, gaps, label boundaries, API input validation, and frontend/API integration; pin or lock deployment dependencies; verify Docker health and restart behavior; document update cadence and stale-feed behavior. Do not silently fall back from live telemetry to archive data. |
+| 9. Prepare the final demo and judge materials | Planned | Present the question, sources, label definition, time split and purge, flare imbalance, calibration/reliability, BSS/TSS against climatology, limitations, and a clearly marked experimental forecast example. Do not imply operational warning capability. |
+
+**Next action for a continuing developer/model:** implement Phase 6 only after checking the official SWPC JSON payload and timestamp/coverage behavior. Keep the existing historical archive and its held-out evaluation artifacts unchanged. Do not retrain the model or redesign the frontend as part of feed ingestion unless a later task asks for it. Once the live API has reliable coverage metadata, update the dashboard to show its live-vs-archive source and freshness explicitly.
+
+Primary live-feed reference: [NOAA SWPC GOES primary XRS JSON directory](https://services.swpc.noaa.gov/json/goes/primary/) (includes rolling `xrays-1-day.json`, `xrays-3-day.json`, and `xrays-7-day.json` products). The directory is a rolling operational feed, separate from the science-quality historical inputs used in Phase 1 and model evaluation.
+
+## Phase 1: historical data pipeline
 
 Build an hourly dataset from NOAA GOES X-ray observations with a forward-looking label for whether an M1.0-or-stronger flare peaks in the following 24 hours. All timestamps are UTC, samples are chronological, and hours with substantial observation gaps are omitted. This phase stops at data preparation; it does not train a model.
 
