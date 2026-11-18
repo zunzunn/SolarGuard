@@ -51,6 +51,18 @@ uvicorn api.main:app --reload
 
 `GET /health` reports whether the model loaded. `POST /predict` accepts 25–72 consecutive completed hourly rows, each containing `sample_time_utc`, `log10_flux_mean`, `xrsb_flux_median_w_m2`, and `xrsb_flux_max_w_m2`. These fields match the hourly dataset. The service returns a calibrated probability, the requested risk band, and the validation-selected decision threshold. The model remains an experimental baseline; this endpoint is not an operational space-weather warning service.
 
+## Phase 4: local dashboard
+
+With the API running, start the React dashboard in another terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the local URL printed by Vite. The page loads the latest archived forecast, a seven-day XRS-B flux chart, test BSS/TSS, and test-period label prevalence from the API. This is an archive snapshot, not live solar telemetry. To point the UI to a different API origin, set `VITE_API_BASE_URL` before starting Vite (for example, `http://127.0.0.1:8000`).
+
 ## Source references
 
 - [NOAA SWPC GOES X-ray Flux data and measurement notes](https://www.spaceweather.gov/products/goes-x-ray-flux)
