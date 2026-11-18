@@ -25,6 +25,98 @@ Primary live-feed reference: [NOAA SWPC GOES primary XRS JSON directory](https:/
 
 ---
 
+## Quickstart: How to Run
+
+### 1. Prerequisites
+- **Python:** 3.11 or newer
+- **Node.js:** 18 or newer (with npm)
+- *(Optional)* Docker Engine & Docker Compose plugin
+
+### 2. Setup Environment
+
+```bash
+# Create and activate a Python virtual environment (recommended)
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install backend dependencies
+pip install -r requirements.txt
+```
+
+### 3. Launch the Application (Dashboard + API)
+
+#### Option A: Unified Local Server (Recommended)
+Builds the React frontend and serves both the interactive dashboard at `/` and the prediction API under a single origin on port 8000:
+
+```bash
+# 1. Build the production frontend assets
+cd frontend
+npm install
+npm run build
+cd ..
+
+# 2. Start the unified server
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+- **Dashboard UI:** Open [http://localhost:8000](http://localhost:8000) in your browser.
+- **Interactive Swagger API Docs:** Open [http://localhost:8000/docs](http://localhost:8000/docs).
+- **Service Health Check:** [http://localhost:8000/health](http://localhost:8000/health).
+
+#### Option B: Development Mode (Hot Reloading)
+For live code editing with hot-module reloading:
+
+- **Terminal 1 (Backend API with auto-reload):**
+  ```bash
+  python -m uvicorn api.main:app --reload --port 8000
+  ```
+- **Terminal 2 (Frontend Vite Dev Server):**
+  ```bash
+  cd frontend
+  npm install
+  npm run dev
+  ```
+  Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The frontend connects directly to the backend at port 8000.
+
+#### Option C: One-Command Docker Deployment
+If Docker is installed:
+
+```bash
+docker compose up --build
+```
+Open [http://localhost:8000](http://localhost:8000). To stop, press `Ctrl+C` or run `docker compose down`.
+
+---
+
+### 4. Running Verification Tests & Scientific Evaluation
+
+- **Run all automated tests (17 unit & integration tests):**
+  ```bash
+  pytest -v
+  ```
+
+- **Run multi-period walk-forward scientific evaluation (Phase 7):**
+  ```bash
+  python src/scientific_evaluation.py
+  ```
+  Generates `reports/scientific_evaluation.md`, JSON metrics, and performance plots.
+
+- **Re-train baseline models (Phase 2):**
+  ```bash
+  python src/train_baseline.py
+  ```
+
+- **Re-run historical dataset pipeline from NOAA NCEI (Phase 1):**
+  ```bash
+  python src/build_dataset.py
+  ```
+
+- **Query live SWPC primary feed from terminal:**
+  ```bash
+  curl http://127.0.0.1:8000/live/predict
+  ```
+
+---
+
 ## Phase 1: historical data pipeline
 
 Build an hourly dataset from NOAA GOES X-ray observations with a forward-looking label for whether an M1.0-or-stronger flare peaks in the following 24 hours. All timestamps are UTC, samples are chronological, and hours with substantial observation gaps are omitted.
