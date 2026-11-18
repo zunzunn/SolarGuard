@@ -85,5 +85,7 @@
     }
   },
   "calibration_plot": "reports/reliability_diagram.png",
-  "test_predictions": "data/processed/test_predictions.csv.gz"
+  "test_predictions": "data/processed/test_predictions.csv.gz",
+  "selected_model": "logistic_regression",
+  "model_artifact": "models/solarguard_logistic.joblib"
 }

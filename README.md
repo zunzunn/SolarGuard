@@ -39,7 +39,17 @@ Each hourly feature row is timestamped at the end of its completed UTC hour: for
 
 Run `python src/train_baseline.py` after the data pipeline. It creates trailing 6-hour and 24-hour flux summaries/deltas, then compares logistic regression and histogram gradient boosting against a training-period climatology forecast. The split is chronological (70% train, 15% validation, 15% test), with 24-hour label windows purged when they reach or cross a split boundary. Calibration and the TSS-selected probability threshold use validation data only; the test period is reserved for final metrics. The report includes Brier Skill Score (BSS), TSS, ROC-AUC, average precision, and confusion counts. Risk bands use `<10% Low`, `10–<40% Moderate`, `40–70% High`, and `>70% Severe`.
 
-Outputs are `reports/model_evaluation.json`, `reports/reliability_diagram.png`, and `data/processed/test_predictions.csv.gz`.
+Outputs are `reports/model_evaluation.json`, `reports/model_evaluation.md`, `reports/reliability_diagram.png`, `data/processed/test_predictions.csv.gz`, and the serialized validation-selected model at `models/solarguard_logistic.joblib`.
+
+## Phase 3: local prediction API
+
+After Phase 2 has created the model artifact, start the API from the repository root:
+
+```bash
+uvicorn api.main:app --reload
+```
+
+`GET /health` reports whether the model loaded. `POST /predict` accepts 25–72 consecutive completed hourly rows, each containing `sample_time_utc`, `log10_flux_mean`, `xrsb_flux_median_w_m2`, and `xrsb_flux_max_w_m2`. These fields match the hourly dataset. The service returns a calibrated probability, the requested risk band, and the validation-selected decision threshold. The model remains an experimental baseline; this endpoint is not an operational space-weather warning service.
 
 ## Source references
 

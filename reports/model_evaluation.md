@@ -19,6 +19,8 @@
 
 Logistic regression is the stronger first baseline on this held-out period. At its validation-selected threshold, it catches 1,639 of 4,107 positive test samples and produces 728 false alarms. The model’s probability ranking is useful relative to the training-climatology reference, but performance remains preliminary and the test prevalence differs sharply from training.
 
+The validation-selected logistic model and sigmoid calibrator are saved at `models/solarguard_logistic.joblib` for the local API. Model selection is based on validation TSS, not the test scores.
+
 ## Calibration
 
 The reliability diagram uses the chronological test period. The curve is broadly near the perfect-calibration line, with visible overprediction in several mid-to-high probability bins. Treat the probability and risk bands as experimental until calibration is checked across additional time periods.

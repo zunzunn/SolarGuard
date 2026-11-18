@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import joblib
 
 import matplotlib
 matplotlib.use("Agg")
@@ -21,41 +22,18 @@ from sklearn.metrics import (brier_score_loss, confusion_matrix, roc_curve,
                              roc_auc_score, average_precision_score)
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+try:
+    from src.features import FEATURES, add_flux_features
+except ModuleNotFoundError:  # Supports the documented `python src/train_baseline.py` command.
+    from features import FEATURES, add_flux_features
 
 
 DATA = Path("data/processed/solarguard_hourly.csv.gz")
 REPORT = Path("reports/model_evaluation.json")
 PREDICTIONS = Path("data/processed/test_predictions.csv.gz")
 PLOT = Path("reports/reliability_diagram.png")
+MODEL = Path("models/solarguard_logistic.joblib")
 HORIZON = pd.Timedelta(hours=24)
-
-
-def add_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    d = df.copy()
-    t = pd.DatetimeIndex(pd.to_datetime(d.sample_time_utc, utc=True))
-    d.index = t
-    d["log_flux_mean"] = d.log10_flux_mean
-    d["log_flux_median"] = np.log10(d.xrsb_flux_median_w_m2.clip(lower=1e-12))
-    d["log_flux_peak"] = np.log10(d.xrsb_flux_max_w_m2.clip(lower=1e-12))
-    signal = d.log_flux_mean
-    cols = ["log_flux_mean", "log_flux_median", "log_flux_peak"]
-    for hours in (6, 24):
-        roll = signal.rolling(f"{hours}h", min_periods=max(3, hours // 2), closed="right")
-        for stat in ("mean", "std", "max"):
-            name = f"log_flux_{stat}_{hours}h"
-            d[name] = getattr(roll, stat)()
-            cols.append(name)
-        delta = f"log_flux_delta_{hours}h"
-        d[delta] = signal - signal.shift(freq=pd.Timedelta(hours=hours))
-        cols.append(delta)
-    d["log_flux_delta_1h"] = signal - signal.shift(freq=pd.Timedelta(hours=1))
-    cols.append("log_flux_delta_1h")
-    d["hour_sin"] = np.sin(2 * np.pi * t.hour / 24)
-    d["hour_cos"] = np.cos(2 * np.pi * t.hour / 24)
-    cols += ["hour_sin", "hour_cos"]
-    d = d.replace([np.inf, -np.inf], np.nan)
-    d = d.dropna(subset=cols + ["label_m_plus_next_24h"])
-    return d, cols
 
 
 def calibrate_sigmoid(raw: np.ndarray, y: np.ndarray) -> tuple[LogisticRegression, np.ndarray]:
@@ -106,7 +84,8 @@ def main() -> None:
     df["sample_time_utc"] = pd.to_datetime(df.sample_time_utc, utc=True)
     if not df.sample_time_utc.is_monotonic_increasing or df.sample_time_utc.duplicated().any():
         raise ValueError("Hourly dataset must be strictly time-ordered with unique timestamps")
-    d, features = add_features(df)
+    d = add_flux_features(df).dropna(subset=FEATURES + ["label_m_plus_next_24h"])
+    features = FEATURES
     times = d.index
     i70, i85 = int(.70 * len(d)), int(.85 * len(d))
     val_start, test_start = times[i70], times[i85]
@@ -129,11 +108,12 @@ def main() -> None:
             min_samples_leaf=80, l2_regularization=1.0,
             early_stopping=False, random_state=17),
     }
-    results, test_probabilities, thresholds = {}, {}, {}
+    results, test_probabilities, thresholds, calibrators = {}, {}, {}, {}
     for name, model in estimators.items():
         model.fit(X_train, y_train)
         raw_val = model.predict_proba(X_val)[:, 1]
         calibrator, calibrated_val = calibrate_sigmoid(raw_val, y_val)
+        calibrators[name] = calibrator
         threshold, val_tss = best_tss_threshold(y_val, calibrated_val)
         calibrated_test = apply_calibrator(calibrator, model.predict_proba(X_test)[:, 1])
         results[name] = {
@@ -150,8 +130,8 @@ def main() -> None:
         "brier_skill_score_vs_training_climatology": 0.0,
     }
 
-    # Build the reliability diagram for the stronger test-set calibrated model.
-    chosen = max((n for n in test_probabilities), key=lambda n: results[n]["brier_skill_score_vs_training_climatology"])
+    # Select model using validation metrics only; never use test results to choose.
+    chosen = max(estimators, key=lambda n: results[n]["validation_tss_at_selected_threshold"])
     p = test_probabilities[chosen]
     edges = np.linspace(0, 1, 11)
     bin_ids = np.clip(np.digitize(p, edges[1:-1], right=False), 0, 9)
@@ -197,11 +177,20 @@ def main() -> None:
         "test_metrics": results,
         "calibration_plot": str(PLOT),
         "test_predictions": str(PREDICTIONS),
+        "selected_model": chosen,
+        "model_artifact": str(MODEL),
     }
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text(json.dumps(summary, indent=2) + "\n")
+    MODEL.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump({"model": estimators[chosen], "calibrator": calibrators[chosen],
+                 "features": features, "decision_threshold": thresholds[chosen],
+                 "selected_by": "highest validation TSS; test set not used for selection",
+                 "validation_start_utc": val_start.isoformat(),
+                 "test_start_utc": test_start.isoformat()}, MODEL)
     print(json.dumps({"partitions": summary["partition_rows"], "metrics": results,
-                      "plot": str(PLOT), "predictions": str(PREDICTIONS)}, indent=2))
+                      "plot": str(PLOT), "predictions": str(PREDICTIONS),
+                      "model_artifact": str(MODEL), "selected_model": chosen}, indent=2))
 
 
 if __name__ == "__main__":
