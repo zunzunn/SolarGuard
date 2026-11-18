@@ -10,7 +10,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import requests
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Response, APIRouter
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -36,6 +36,8 @@ app = FastAPI(
     description="Experimental next-24-hour M1+ flare probability API with live NOAA SWPC integration",
 )
 
+router = APIRouter()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -48,7 +50,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://((localhost|127\.0\.0\.1)(:\d+)?|.*\.vercel\.app)$",
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -112,7 +114,7 @@ def get_cached_flares() -> pd.DataFrame:
     return _FLARE_CACHE
 
 
-@app.get("/health")
+@router.get("/health")
 def health() -> dict:
     return {
         "status": "ok",
@@ -136,7 +138,7 @@ if FRONTEND_DIST.joinpath("assets").is_dir():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="dashboard-assets")
 
 
-@app.get("/history")
+@router.get("/history")
 def history(hours: int = Query(default=168, ge=24, le=720)) -> dict:
     """Historical archive snapshot observations."""
     if not HISTORY_PATH.exists():
@@ -158,7 +160,7 @@ def history(hours: int = Query(default=168, ge=24, le=720)) -> dict:
     }
 
 
-@app.get("/evaluation")
+@router.get("/evaluation")
 def evaluation() -> dict:
     if not EVALUATION_PATH.exists():
         raise HTTPException(503, "Evaluation report is unavailable; run Phase 2 training first.")
@@ -169,7 +171,7 @@ def evaluation() -> dict:
     return report
 
 
-@app.get("/evaluation/scientific")
+@router.get("/evaluation/scientific")
 def evaluation_scientific() -> dict:
     if not SCIENTIFIC_EVALUATION_PATH.exists():
         raise HTTPException(503, "Scientific evaluation report is unavailable; run Phase 7 scientific evaluation first.")
@@ -221,12 +223,12 @@ def forecast_rows(rows: list[dict]) -> dict:
     }
 
 
-@app.post("/predict")
+@router.post("/predict")
 def predict(request: PredictRequest) -> dict:
     return forecast_rows([row.model_dump() for row in request.observations])
 
 
-@app.get("/predict/latest")
+@router.get("/predict/latest")
 def predict_latest() -> dict:
     """Forecast for the latest completed hour in the historical archive."""
     if not HISTORY_PATH.exists():
@@ -250,7 +252,7 @@ def predict_latest() -> dict:
     return result
 
 
-@app.get("/flare-events")
+@router.get("/flare-events")
 def flare_events(
     min_class: str = Query(default="M", pattern="^(M|X|C)$", description="Minimum flare class: M or X"),
     limit: int = Query(default=50, ge=1, le=200),
@@ -291,7 +293,7 @@ def flare_events(
     }
 
 
-@app.get("/stats/summary")
+@router.get("/stats/summary")
 def stats_summary() -> dict:
     """Consolidated space weather mission metrics and catalog totals."""
     df = get_cached_dataset()
@@ -326,7 +328,7 @@ def stats_summary() -> dict:
     }
 
 
-@app.get("/export/flare-events")
+@router.get("/export/flare-events")
 def export_flare_events(limit: int = Query(default=1000, ge=10, le=5000)) -> Response:
     """Download historical M and X flare events as CSV."""
     flares = get_cached_flares().sort_values(by="sample_time_utc", ascending=False).head(limit)
@@ -347,7 +349,7 @@ def export_flare_events(limit: int = Query(default=1000, ge=10, le=5000)) -> Res
     )
 
 
-@app.post("/simulate/scenario")
+@router.post("/simulate/scenario")
 def simulate_scenario(req: ScenarioRequest) -> dict:
     """Simulate hypothetical solar conditions to test model sensitivity."""
     if not HISTORY_PATH.exists():
@@ -417,7 +419,7 @@ def simulate_scenario(req: ScenarioRequest) -> dict:
 # --- Live NOAA SWPC Feed Endpoints ---
 
 
-@app.get("/live/status")
+@router.get("/live/status")
 def live_status() -> dict:
     """Check connectivity and staleness of NOAA SWPC primary feed."""
     try:
@@ -432,7 +434,7 @@ def live_status() -> dict:
         raise HTTPException(500, f"Error inspecting NOAA SWPC feed: {exc}")
 
 
-@app.get("/live/history")
+@router.get("/live/history")
 def live_history(hours: int = Query(default=168, ge=24, le=720)) -> dict:
     """Completed hourly samples from NOAA SWPC primary XRS operational feed."""
     try:
@@ -468,8 +470,8 @@ def live_history(hours: int = Query(default=168, ge=24, le=720)) -> dict:
     }
 
 
-@app.get("/live/predict")
-@app.get("/predict/live")
+@router.get("/live/predict")
+@router.get("/predict/live")
 def predict_live(force_refresh: bool = False) -> dict:
     """Predict next-24-hour M+ flare probability using current NOAA SWPC GOES primary XRS observations."""
     try:
@@ -510,3 +512,13 @@ def predict_live(force_refresh: bool = False) -> dict:
         "not an operational space weather warning service."
     )
     return forecast
+
+
+app.include_router(router)
+app.include_router(router, prefix="/api")
+
+
+@app.get("/api/docs", include_in_schema=False)
+def api_docs_redirect():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/docs")

@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-const API = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')
+// API Base URL: checks VITE_API_BASE_URL, runtime bound APP_URL, or defaults to public '/api' prefix
+const API = import.meta.env.VITE_API_BASE_URL ?? (
+  typeof process !== 'undefined' && process.env?.APP_URL
+    ? `${process.env.APP_URL}/api`
+    : (import.meta.env.DEV ? 'http://127.0.0.1:8000/api' : '/api')
+)
 
 // Operational Operator Profiles
 const OPERATOR_PROFILES = [
