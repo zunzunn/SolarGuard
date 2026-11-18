@@ -6,3 +6,5 @@ data/raw/**
 data/processed/**
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/processed/solarguard_hourly.csv.gz
+!data/processed/test_predictions.csv.gz

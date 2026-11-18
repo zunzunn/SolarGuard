@@ -1,14 +1,14 @@
 # SolarGuard AI — Phase 1 data quality
 
-Window: 2016-11-18 through 2026-11-17 UTC.
+Sample window: 2016-11-18 through 2026-11-16 UTC. Each sample time is the **end of its completed feature hour**; the first row is at 01:00 UTC.
 
-- Hourly samples retained: **87,589**
+- Hourly samples retained: **87,588**
 - Positive next-24h M+ samples: **19,427 (22.180%)**
 - Negative:positive ratio: **3.5:1**
-- Minute-level coverage across the window: **100.0%**
+- Minute-level coverage across the requested period: **99.96%**
 - Chronological ordering: **True**; duplicate sample hours: **0**
 
-Labels are based on the flare peak time and the M1.0 GOES threshold (10⁻⁵ W/m²). Class prevalence counts overlapping hourly forecast windows, so positive hours are not the same as the number of unique flares.
+Features use the completed UTC hour `[sample_time - 1h, sample_time)`. Labels are based on flare peak time and the M1.0 GOES threshold (10⁻⁵ W/m²), with a positive if a peak occurs in `(sample_time, sample_time + 24h]`. Class prevalence counts overlapping hourly forecast windows, so positive hours are not the same as the number of unique flares.
 
 ## Caveats
 

@@ -33,7 +33,13 @@ Outputs:
 - `reports/data_quality.md` and `reports/data_quality.json`: coverage, sample counts, positive prevalence, imbalance, missing-hour count, and basic ordering checks.
 - `data/raw/`: the source inputs used to create the outputs.
 
-Label definition: a row at hour boundary `t` is positive if a catalog flare peak with XRS-B peak flux >= 1e-5 W/m² occurs in `(t, t + 24 hours]`. This avoids assigning a peak at or before the sample time to its future label. A row is retained only when at least 45 of its 60 one-minute observations exist. No flux interpolation or forward filling is done. Concurrent satellites at a timestamp are median-combined.
+Each hourly feature row is timestamped at the end of its completed UTC hour: for sample time `t`, features use measurements from `[t - 1 hour, t)`. The row is positive if a catalog flare peak with XRS-B peak flux >= 1e-5 W/m² occurs in `(t, t + 24 hours]`. This keeps every predictor measurement before the forecast window. A row is retained only when at least 45 of its 60 one-minute observations exist. No flux interpolation or forward filling is done. Concurrent satellites at a timestamp are median-combined.
+
+## Phase 2: chronological baseline evaluation
+
+Run `python src/train_baseline.py` after the data pipeline. It creates trailing 6-hour and 24-hour flux summaries/deltas, then compares logistic regression and histogram gradient boosting against a training-period climatology forecast. The split is chronological (70% train, 15% validation, 15% test), with 24-hour label windows purged when they reach or cross a split boundary. Calibration and the TSS-selected probability threshold use validation data only; the test period is reserved for final metrics. The report includes Brier Skill Score (BSS), TSS, ROC-AUC, average precision, and confusion counts. Risk bands use `<10% Low`, `10–<40% Moderate`, `40–70% High`, and `>70% Severe`.
+
+Outputs are `reports/model_evaluation.json`, `reports/reliability_diagram.png`, and `data/processed/test_predictions.csv.gz`.
 
 ## Source references
 

@@ -1,0 +1,89 @@
+{
+  "dataset": "data/processed/solarguard_hourly.csv.gz",
+  "feature_definition": "Hourly flux features plus trailing 6h/24h summaries and deltas; all flux windows end at sample_time.",
+  "split_method": "Chronological 70%/15%/15% by timestamp; no random split.",
+  "purge": "Drop samples whose 24-hour label window reaches or crosses a train/validation or validation/test boundary.",
+  "calibration": "Sigmoid calibration fitted on validation probabilities only.",
+  "threshold_selection": "TSS-maximizing threshold selected on validation data only; test period is untouched until scoring.",
+  "boundaries_utc": {
+    "validation_start": "2023-11-16T23:00:00+00:00",
+    "test_start": "2025-05-17T12:00:00+00:00"
+  },
+  "partition_rows": {
+    "train": 61247,
+    "validation": 13106,
+    "test": 13130
+  },
+  "purged_rows": {
+    "train_boundary": 24,
+    "validation_boundary": 24
+  },
+  "training_climatology_rate": 0.11778536091563668,
+  "features": [
+    "log_flux_mean",
+    "log_flux_median",
+    "log_flux_peak",
+    "log_flux_mean_6h",
+    "log_flux_std_6h",
+    "log_flux_max_6h",
+    "log_flux_delta_6h",
+    "log_flux_mean_24h",
+    "log_flux_std_24h",
+    "log_flux_max_24h",
+    "log_flux_delta_24h",
+    "log_flux_delta_1h",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "test_metrics": {
+    "logistic_regression": {
+      "brier_score": 0.17060864200991396,
+      "brier_skill_score_vs_training_climatology": 0.32561260906715306,
+      "tss": 0.31839205065884046,
+      "threshold_from_validation": 0.5849381108495783,
+      "sensitivity": 0.3990747504261018,
+      "specificity": 0.9193173002327386,
+      "true_positives": 1639,
+      "false_positives": 728,
+      "true_negatives": 8295,
+      "false_negatives": 2468,
+      "roc_auc": 0.772940731152628,
+      "average_precision": 0.6315998958966953,
+      "positive_rate": 0.3127951256664128,
+      "validation_tss_at_selected_threshold": 0.43614553587561955
+    },
+    "hist_gradient_boosting": {
+      "brier_score": 0.17947572421378288,
+      "brier_skill_score_vs_training_climatology": 0.2905625180388993,
+      "tss": 0.26483835468382466,
+      "threshold_from_validation": 0.5893896089548696,
+      "sensitivity": 0.3357682006330655,
+      "specificity": 0.9290701540507592,
+      "true_positives": 1379,
+      "false_positives": 640,
+      "true_negatives": 8383,
+      "false_negatives": 2728,
+      "roc_auc": 0.7534909906536771,
+      "average_precision": 0.5949066443018532,
+      "positive_rate": 0.3127951256664128,
+      "validation_tss_at_selected_threshold": 0.4108489395480444
+    },
+    "training_climatology": {
+      "brier_score": 0.2529831433738988,
+      "brier_skill_score_vs_training_climatology": 0.0,
+      "tss": 0.0,
+      "threshold_from_validation": null,
+      "sensitivity": 0.0,
+      "specificity": 1.0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "true_negatives": 9023,
+      "false_negatives": 4107,
+      "roc_auc": 0.5,
+      "average_precision": 0.3127951256664128,
+      "positive_rate": 0.3127951256664128
+    }
+  },
+  "calibration_plot": "reports/reliability_diagram.png",
+  "test_predictions": "data/processed/test_predictions.csv.gz"
+}

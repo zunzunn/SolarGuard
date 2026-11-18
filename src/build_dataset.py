@@ -183,9 +183,12 @@ def make_hourly(xrs: pd.DataFrame, flares: pd.DataFrame, catalog_end: pd.Timesta
         valid_minutes=("xrsb_flux_w_m2", "count"),
         satellite_count=("satellite_count", "max"),
     )
+    # Timestamp each sample at the end of its completed feature hour. The
+    # forecast window begins strictly after all included measurements.
+    hourly.index = hourly.index + pd.Timedelta(hours=1)
     hourly.index.name = "sample_time_utc"
     hourly = hourly[hourly.valid_minutes >= 45]
-    # Label window is (hour boundary, boundary + 24h], using flare PEAK time.
+    # Label window is (sample time, sample time + 24h], using flare PEAK time.
     # searchsorted makes the half-open intervals explicit and efficient.
     ft = np.sort(flares.loc[(flares.time >= TIME0) & (flares.time < TIME1) &
                             (flares._peak_w_m2 >= 1e-5), "time"].astype("int64").to_numpy())
@@ -222,6 +225,7 @@ def write_report(hourly: pd.DataFrame, minute: pd.DataFrame, flare_path: Path, r
         "time_ordered": bool(hourly.sample_time_utc.is_monotonic_increasing),
         "duplicate_sample_hours": int(hourly.sample_time_utc.duplicated().sum()),
         "flare_catalog_file": flare_path.name,
+        "feature_window": "Completed UTC hour [sample_time-1h, sample_time); no observation at or after sample_time is used.",
         "label_definition": "Any catalog flare with peak XRS-B >= 1e-5 W/m^2 (M1+) whose peak is in (sample_time, sample_time+24h].",
         "notes": ["Rows need >=45 valid 1-minute observations per hour.",
                   "Overlapping spacecraft measurements are median-combined by timestamp.",
