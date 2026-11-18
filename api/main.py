@@ -10,6 +10,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -18,6 +19,7 @@ from src.features import add_flux_features
 MODEL_PATH = Path(os.getenv("SOLARGUARD_MODEL_PATH", "models/solarguard_logistic.joblib"))
 HISTORY_PATH = Path(os.getenv("SOLARGUARD_DATA_PATH", "data/processed/solarguard_hourly.csv.gz"))
 EVALUATION_PATH = Path("reports/model_evaluation.json")
+FRONTEND_DIST = Path(os.getenv("SOLARGUARD_FRONTEND_DIST", "frontend/dist"))
 bundle = joblib.load(MODEL_PATH)
 app = FastAPI(title="SolarGuard AI", version="0.3.0",
               description="Experimental next-24-hour M1+ flare probability API")
@@ -39,6 +41,20 @@ class PredictRequest(BaseModel):
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "model": "logistic_regression", "artifact": str(MODEL_PATH)}
+
+
+@app.get("/", include_in_schema=False)
+def dashboard() -> FileResponse:
+    index = FRONTEND_DIST / "index.html"
+    if not index.exists():
+        raise HTTPException(404, "Dashboard files are unavailable; build the frontend first.")
+    return FileResponse(index)
+
+
+if FRONTEND_DIST.joinpath("assets").is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="dashboard-assets")
 
 
 @app.get("/history")

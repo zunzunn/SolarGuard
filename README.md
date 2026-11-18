@@ -63,6 +63,16 @@ npm run dev
 
 Open the local URL printed by Vite. The page loads the latest archived forecast, a seven-day XRS-B flux chart, test BSS/TSS, and test-period label prevalence from the API. This is an archive snapshot, not live solar telemetry. To point the UI to a different API origin, set `VITE_API_BASE_URL` before starting Vite (for example, `http://127.0.0.1:8000`).
 
+## Phase 5: one-command local deployment
+
+Docker packages the existing dashboard and API into one service. It serves the dashboard at `/` and the API under the same origin, avoiding separate frontend/API startup and browser cross-origin setup. Docker Desktop (or Docker Engine with the Compose plugin) must be installed. Build and start it from the repository root:
+
+```bash
+docker compose up --build
+```
+
+Open [http://localhost:8000](http://localhost:8000). Check [http://localhost:8000/health](http://localhost:8000/health) for service health. Stop it with `Ctrl+C`, or run `docker compose down` from another terminal. The image includes the checked-in hourly archive and evaluation report; rebuild it after regenerating either artifact. Forecasts remain experimental and use the latest archived sample, not live telemetry.
+
 ## Source references
 
 - [NOAA SWPC GOES X-ray Flux data and measurement notes](https://www.spaceweather.gov/products/goes-x-ray-flux)
