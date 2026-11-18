@@ -4,7 +4,7 @@
 
 **Project goal:** Estimate the probability of at least one M1.0-or-stronger solar flare in the 24 hours after the latest completed hour, using GOES X-ray flux. This is a research prototype, not an operational space-weather warning service.
 
-**Current state (2026-11-18):** Phases 1–4 and Phase 6 are implemented and verified with automated test suites. The frontend production build was verified and enhanced with a dual live/archive telemetry switcher. Relative origin URL resolution was introduced to resolve prior blank-preview issues caused by localhost/127.0.0.1 cross-origin mismatch. Phase 5 deployment files (`Dockerfile`, `compose.yaml`) are present and ready for Docker environments.
+**Current state (2026-11-18):** Phases 1–4, Phase 6, and Phase 7 are implemented and verified with automated test suites. The frontend production build was verified and enhanced with a dual live/archive telemetry switcher and scientific walk-forward backtest metrics. Phase 5 deployment files (`Dockerfile`, `compose.yaml`) are present and ready for Docker environments.
 
 | Phase | Status | Deliverable / handoff |
 |---|---|---|
@@ -15,11 +15,11 @@
 | 4. Build the dashboard | Complete & verified | `frontend/` provides interactive viewing of live GOES-18 SWPC telemetry and historical archive snapshot. Seven-day XRS-B chart, next-24-hour forecast, and clearly separated held-out test evaluation benchmarks. |
 | 5. Package a local deployment | Implemented; Docker run pending | `Dockerfile` and `compose.yaml` build a single service for the API and dashboard. Run `docker compose up --build` when a Docker daemon is available. |
 | 6. Add current NOAA observations | Complete | `src/live_feed.py` consumes NOAA SWPC GOES primary XRS rolling feed, isolates 0.1–0.8 nm band, aggregates completed UTC hours using the 45-min coverage rule, checks staleness, and passes history to `api/main.py` endpoints `/live/status`, `/live/history`, and `/live/predict`. |
-| 7. Strengthen scientific evaluation | Planned; next implementation step | Add rolling-origin / multiple-period backtests and inspect performance by satellite era and solar activity level. Preserves untouched chronological test periods; reports BSS, TSS, reliability, and positive prevalence rather than accuracy alone. |
+| 7. Strengthen scientific evaluation | Complete | `src/scientific_evaluation.py` performs 4-fold rolling walk-forward backtests across Solar Cycle 25 (Mean BSS 0.460 ± 0.183, Mean TSS 0.246 ± 0.082, Mean ROC-AUC 0.773), stratifies by activity regime (Quiet, Active, Storm), and compares satellite eras (Legacy GOES-13-15 vs GOES-R 16+). Exposed at `/evaluation/scientific`. |
 | 8. Harden operations and reproducibility | In Progress (Test suite active) | Automated test suite in `tests/` tests data processing, coverage checks, staleness detection, lookahead prevention, and API validation. Re-run with `pytest -v`. |
-| 9. Prepare the final demo and judge materials | Planned | Present the question, sources, label definition, time split and purge, flare imbalance, calibration/reliability, BSS/TSS against climatology, limitations, and a clearly marked experimental forecast example. |
+| 9. Prepare the final demo and judge materials | Planned; next implementation step | Present the question, sources, label definition, time split and purge, flare imbalance, calibration/reliability, BSS/TSS against climatology, limitations, and a clearly marked experimental forecast example. |
 
-**Next action for a continuing developer/model:** Proceed with Phase 7 (Strengthen scientific evaluation: rolling-origin backtests across activity regimes). Keep the existing historical archive, baseline evaluation artifacts, and live feed endpoints intact.
+**Next action for a continuing developer/model:** Proceed with Phase 9 (Prepare final demo and judge materials) or Phase 5 Docker build verification when docker daemon is available.
 
 Primary live-feed reference: [NOAA SWPC GOES primary XRS JSON directory](https://services.swpc.noaa.gov/json/goes/primary/) (includes rolling `xrays-1-day.json`, `xrays-3-day.json`, and `xrays-7-day.json` products).
 
@@ -73,6 +73,18 @@ uvicorn api.main:app --reload
 - `GET /live/status`: Checks live telemetry feed connectivity, satellite ID (e.g. GOES-18), staleness minutes, and active status.
 - `GET /live/history?hours=168`: Hourly aggregated samples from NOAA SWPC primary XRS operational feed, enforcing the 45-minute coverage check.
 - `GET /live/predict`: Computes live next-24-hour M+ flare probability using current GOES-18 primary telemetry. If the live feed is unavailable or has gaps, returns explicit HTTP errors (no silent fallback).
+
+### Scientific Evaluation Endpoints & Pipeline (Phase 7)
+- `GET /evaluation/scientific`: Full JSON summary of 4-fold walk-forward backtests across Solar Cycle 25, activity regime stratifications (Quiet, Active, Storm), and cross-generation satellite era performance (GOES-13–15 vs GOES-16+).
+- Run the scientific evaluation suite:
+  ```bash
+  python src/scientific_evaluation.py
+  ```
+  Outputs:
+  - `reports/scientific_evaluation.md`: Markdown report detailing metrics across epochs.
+  - `reports/scientific_evaluation.json`: Machine-readable fold and regime metrics.
+  - `reports/rolling_backtest_performance.png`: Plot of BSS and TSS vs flare prevalence.
+  - `reports/activity_regime_performance.png`: Plot of performance by background X-ray flux.
 
 ---
 

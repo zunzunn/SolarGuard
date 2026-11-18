@@ -343,6 +343,23 @@ export default function App() {
         </article>
       </section>
 
+      {state.evaluation?.scientific_backtest && (
+        <section className="shift-callout" style={{ marginTop: '16px', background: 'rgba(12, 28, 42, 0.7)' }}>
+          <span className="shift-tag">WALK-FORWARD BACKTEST</span>
+          <span>
+            <strong>Solar Cycle 25 Multi-Epoch Validation:</strong> Mean BSS <strong>{state.evaluation.scientific_backtest.mean_brier_skill_score.toFixed(3)}</strong> ± {state.evaluation.scientific_backtest.std_brier_skill_score.toFixed(3)} · Mean TSS <strong>{state.evaluation.scientific_backtest.mean_tss.toFixed(3)}</strong> · Mean ROC-AUC <strong>{state.evaluation.scientific_backtest.mean_roc_auc.toFixed(3)}</strong> across 4 rolling chronological epochs (prevalence 17%–76%).
+          </span>
+          <a
+            href={`${API}/evaluation/scientific`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ marginLeft: 'auto', color: '#88b6d3', textDecoration: 'none', fontSize: '11px', whiteSpace: 'nowrap' }}
+          >
+            Scientific report ↗
+          </a>
+        </section>
+      )}
+
       <section className="method-note">
         <span className="method-icon">i</span>
         <p>

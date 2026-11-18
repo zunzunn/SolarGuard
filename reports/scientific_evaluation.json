@@ -1,0 +1,228 @@
+{
+  "dataset": "data/processed/solarguard_hourly.csv.gz",
+  "evaluation_timestamp_utc": "2026-11-18T18:26:46.914310+00:00",
+  "rolling_backtest": {
+    "folds": [
+      {
+        "fold_name": "Fold 1: Cycle 25 Rising Phase",
+        "period": {
+          "train_end_utc": "2021-01-01T00:00:00+00:00",
+          "val_window_utc": "2021-01-01 to 2021-07-01",
+          "test_window_utc": "2021-07-01 to 2022-07-01"
+        },
+        "train_rows": 36048,
+        "val_rows": 4320,
+        "test_rows": 8760,
+        "validation_tss": 0.5927,
+        "selected_threshold": 0.012,
+        "training_climatology_rate": 0.0182,
+        "model_metrics": {
+          "sample_count": 8760,
+          "positive_count": 1527,
+          "positive_rate": 0.17431506849315068,
+          "brier_score": 0.11316,
+          "brier_skill_score": 0.3276,
+          "tss": 0.1132,
+          "heidke_skill_score": 0.0426,
+          "false_alarm_ratio": 0.8077,
+          "sensitivity": 1.0,
+          "specificity": 0.1132,
+          "roc_auc": 0.83,
+          "average_precision": 0.493,
+          "true_positives": 1527,
+          "false_positives": 6414,
+          "true_negatives": 819,
+          "false_negatives": 0
+        },
+        "climatology_brier_score": 0.1683
+      },
+      {
+        "fold_name": "Fold 2: Cycle 25 Pre-Maximum",
+        "period": {
+          "train_end_utc": "2022-07-01T00:00:00+00:00",
+          "val_window_utc": "2022-07-01 to 2023-01-01",
+          "test_window_utc": "2023-01-01 to 2024-01-01"
+        },
+        "train_rows": 49152,
+        "val_rows": 4392,
+        "test_rows": 8760,
+        "validation_tss": 0.4985,
+        "selected_threshold": 0.3016,
+        "training_climatology_rate": 0.0462,
+        "model_metrics": {
+          "sample_count": 8760,
+          "positive_count": 4221,
+          "positive_rate": 0.48184931506849316,
+          "brier_score": 0.21134,
+          "brier_skill_score": 0.5191,
+          "tss": 0.3224,
+          "heidke_skill_score": 0.3185,
+          "false_alarm_ratio": 0.3948,
+          "sensitivity": 0.8195,
+          "specificity": 0.503,
+          "roc_auc": 0.7359,
+          "average_precision": 0.7132,
+          "true_positives": 3459,
+          "false_positives": 2256,
+          "true_negatives": 2283,
+          "false_negatives": 762
+        },
+        "climatology_brier_score": 0.43942
+      },
+      {
+        "fold_name": "Fold 3: Cycle 25 Peak Maximum",
+        "period": {
+          "train_end_utc": "2024-01-01T00:00:00+00:00",
+          "val_window_utc": "2024-01-01 to 2024-06-01",
+          "test_window_utc": "2024-06-01 to 2025-01-01"
+        },
+        "train_rows": 62328,
+        "val_rows": 3624,
+        "test_rows": 5125,
+        "validation_tss": 0.5382,
+        "selected_threshold": 0.5628,
+        "training_climatology_rate": 0.1233,
+        "model_metrics": {
+          "sample_count": 5125,
+          "positive_count": 3879,
+          "positive_rate": 0.7568780487804878,
+          "brier_score": 0.15789,
+          "brier_skill_score": 0.7303,
+          "tss": 0.2447,
+          "heidke_skill_score": 0.2718,
+          "false_alarm_ratio": 0.1887,
+          "sensitivity": 0.8876,
+          "specificity": 0.3571,
+          "roc_auc": 0.7513,
+          "average_precision": 0.898,
+          "true_positives": 3443,
+          "false_positives": 801,
+          "true_negatives": 445,
+          "false_negatives": 436
+        },
+        "climatology_brier_score": 0.58548
+      },
+      {
+        "fold_name": "Fold 4: Cycle 25 Post-Peak Holdout",
+        "period": {
+          "train_end_utc": "2025-01-01T00:00:00+00:00",
+          "val_window_utc": "2025-01-01 to 2025-05-17",
+          "test_window_utc": "2025-05-17 to 2026-11-17"
+        },
+        "train_rows": 71101,
+        "val_rows": 3240,
+        "test_rows": 13142,
+        "validation_tss": 0.3453,
+        "selected_threshold": 0.5595,
+        "training_climatology_rate": 0.1931,
+        "model_metrics": {
+          "sample_count": 13142,
+          "positive_count": 4107,
+          "positive_rate": 0.31250951148987977,
+          "brier_score": 0.16922,
+          "brier_skill_score": 0.2614,
+          "tss": 0.3022,
+          "heidke_skill_score": 0.3462,
+          "false_alarm_ratio": 0.2985,
+          "sensitivity": 0.3747,
+          "specificity": 0.9275,
+          "roc_auc": 0.7731,
+          "average_precision": 0.6313,
+          "true_positives": 1539,
+          "false_positives": 655,
+          "true_negatives": 8380,
+          "false_negatives": 2568
+        },
+        "climatology_brier_score": 0.22911
+      }
+    ],
+    "aggregate_performance": {
+      "mean_brier_skill_score": 0.4596,
+      "std_brier_skill_score": 0.1827,
+      "mean_tss": 0.2456,
+      "std_tss": 0.0816,
+      "mean_roc_auc": 0.7726,
+      "std_roc_auc": 0.0357,
+      "test_prevalence_range": [
+        0.1743,
+        0.7569
+      ]
+    }
+  },
+  "activity_regimes": {
+    "Active Background (10\u207b\u2077\u201310\u207b\u2076 W/m\u00b2, C-class)": {
+      "sample_count": 6675,
+      "positive_count": 1081,
+      "positive_rate": 0.16194756554307116,
+      "brier_score": 0.12923,
+      "brier_skill_score": 0.0478,
+      "tss": 0.0119,
+      "heidke_skill_score": 0.0196,
+      "false_alarm_ratio": 0.4231,
+      "sensitivity": 0.0139,
+      "specificity": 0.998,
+      "roc_auc": 0.6706,
+      "average_precision": 0.2787,
+      "true_positives": 15,
+      "false_positives": 11,
+      "true_negatives": 5583,
+      "false_negatives": 1066
+    },
+    "Storm Background (\u2265 10\u207b\u2076 W/m\u00b2, M+-class)": {
+      "sample_count": 6455,
+      "positive_count": 3026,
+      "positive_rate": 0.4687838884585593,
+      "brier_score": 0.21339,
+      "brier_skill_score": 0.1431,
+      "tss": 0.3276,
+      "heidke_skill_score": 0.332,
+      "false_alarm_ratio": 0.3063,
+      "sensitivity": 0.5367,
+      "specificity": 0.7909,
+      "roc_auc": 0.7256,
+      "average_precision": 0.7064,
+      "true_positives": 1624,
+      "false_positives": 717,
+      "true_negatives": 2712,
+      "false_negatives": 1402
+    }
+  },
+  "satellite_eras": {
+    "Legacy Era (GOES-13-15, 2016-2017)": {
+      "sample_count": 9772,
+      "positive_count": 528,
+      "positive_rate": 0.05403192795742939,
+      "brier_score": 0.03433,
+      "brier_skill_score": 0.3283,
+      "tss": 0.313,
+      "heidke_skill_score": 0.4339,
+      "false_alarm_ratio": 0.2222,
+      "sensitivity": 0.3182,
+      "specificity": 0.9948,
+      "roc_auc": 0.9217,
+      "average_precision": 0.5603,
+      "true_positives": 168,
+      "false_positives": 48,
+      "true_negatives": 9196,
+      "false_negatives": 360
+    },
+    "GOES-R Modern Era (GOES-16-18, 2018-2026)": {
+      "sample_count": 77759,
+      "positive_count": 18891,
+      "positive_rate": 0.2429429390810067,
+      "brier_score": 0.10308,
+      "brier_skill_score": 0.4395,
+      "tss": 0.4891,
+      "heidke_skill_score": 0.542,
+      "false_alarm_ratio": 0.2372,
+      "sensitivity": 0.5433,
+      "specificity": 0.9458,
+      "roc_auc": 0.9102,
+      "average_precision": 0.7553,
+      "true_positives": 10263,
+      "false_positives": 3191,
+      "true_negatives": 55677,
+      "false_negatives": 8628
+    }
+  }
+}

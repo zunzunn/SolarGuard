@@ -26,6 +26,7 @@ from src.live_feed import (
 MODEL_PATH = Path(os.getenv("SOLARGUARD_MODEL_PATH", "models/solarguard_logistic.joblib"))
 HISTORY_PATH = Path(os.getenv("SOLARGUARD_DATA_PATH", "data/processed/solarguard_hourly.csv.gz"))
 EVALUATION_PATH = Path("reports/model_evaluation.json")
+SCIENTIFIC_EVALUATION_PATH = Path("reports/scientific_evaluation.json")
 FRONTEND_DIST = Path(os.getenv("SOLARGUARD_FRONTEND_DIST", "frontend/dist"))
 bundle = joblib.load(MODEL_PATH)
 
@@ -115,7 +116,18 @@ def history(hours: int = Query(default=168, ge=24, le=720)) -> dict:
 def evaluation() -> dict:
     if not EVALUATION_PATH.exists():
         raise HTTPException(503, "Evaluation report is unavailable; run Phase 2 training first.")
-    return json.loads(EVALUATION_PATH.read_text())
+    report = json.loads(EVALUATION_PATH.read_text())
+    if SCIENTIFIC_EVALUATION_PATH.exists():
+        sci = json.loads(SCIENTIFIC_EVALUATION_PATH.read_text())
+        report["scientific_backtest"] = sci.get("rolling_backtest", {}).get("aggregate_performance")
+    return report
+
+
+@app.get("/evaluation/scientific")
+def evaluation_scientific() -> dict:
+    if not SCIENTIFIC_EVALUATION_PATH.exists():
+        raise HTTPException(503, "Scientific evaluation report is unavailable; run Phase 7 scientific evaluation first.")
+    return json.loads(SCIENTIFIC_EVALUATION_PATH.read_text())
 
 
 def forecast_rows(rows: list[dict]) -> dict:
