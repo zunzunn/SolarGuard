@@ -128,3 +128,45 @@ def test_api_predict_input_validation():
     assert resp.status_code == 200
     data = resp.json()
     assert 0.0 <= data["m_plus_probability"] <= 1.0
+
+
+def test_api_flare_events_and_stats():
+    # Stats summary
+    resp = client.get("/stats/summary")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_hours_cataloged"] > 80000
+    assert data["total_m_flares"] > 1000
+    assert data["total_x_flares"] > 50
+    assert "X" in data["peak_flux_class"]
+
+    # Flare events catalog
+    resp = client.get("/flare-events?limit=10")
+    assert resp.status_code == 200
+    catalog = resp.json()
+    assert catalog["returned_count"] == 10
+    assert catalog["total_count"] > 1000
+    assert len(catalog["events"]) == 10
+    first = catalog["events"][0]
+    assert "flare_class" in first
+    assert "flux_max_w_m2" in first
+
+    # Flare events with class filter
+    resp = client.get("/flare-events?min_class=X&limit=5")
+    assert resp.status_code == 200
+    x_catalog = resp.json()
+    assert all(e["class_type"] == "X" for e in x_catalog["events"])
+
+    # CSV export
+    resp = client.get("/export/flare-events?limit=20")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    assert "sample_time_utc" in resp.text
+    assert len(resp.text.strip().split("\n")) == 21
+
+    # Scenario simulation
+    resp = client.post("/simulate/scenario", json={"scenario": "x_class_burst"})
+    assert resp.status_code == 200
+    sim = resp.json()
+    assert sim["simulated_probability"] > sim["baseline_probability"]
+    assert sim["simulated_risk"] in ["High", "Severe"]

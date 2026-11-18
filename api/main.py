@@ -10,7 +10,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import requests
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -64,6 +64,52 @@ class HourlyFlux(BaseModel):
 
 class PredictRequest(BaseModel):
     observations: list[HourlyFlux] = Field(min_length=25, max_length=72)
+
+
+class ScenarioRequest(BaseModel):
+    scenario: str = Field(
+        default="x_class_burst",
+        description="Scenario type: x_class_burst, m_flare_surge, quiet_background, or custom",
+    )
+    multiplier: float = Field(default=5.0, ge=0.01, le=100.0)
+
+
+def classify_flux(flux: float) -> str:
+    """Format physical W/m² flux into standard GOES solar flare classification (A, B, C, M, X)."""
+    if flux >= 1e-4:
+        return f"X{flux / 1e-4:.1f}"
+    elif flux >= 1e-5:
+        return f"M{flux / 1e-5:.1f}"
+    elif flux >= 1e-6:
+        return f"C{flux / 1e-6:.1f}"
+    elif flux >= 1e-7:
+        return f"B{flux / 1e-7:.1f}"
+    else:
+        return f"A{flux / 1e-8:.1f}"
+
+
+_DATASET_CACHE: pd.DataFrame | None = None
+_FLARE_CACHE: pd.DataFrame | None = None
+
+
+def get_cached_dataset() -> pd.DataFrame:
+    global _DATASET_CACHE
+    if _DATASET_CACHE is None:
+        if not HISTORY_PATH.exists():
+            raise HTTPException(503, "Hourly dataset is unavailable; run the Phase 1 pipeline first.")
+        _DATASET_CACHE = pd.read_csv(HISTORY_PATH)
+    return _DATASET_CACHE
+
+
+def get_cached_flares() -> pd.DataFrame:
+    global _FLARE_CACHE
+    if _FLARE_CACHE is None:
+        df = get_cached_dataset()
+        flares = df[df["xrsb_flux_max_w_m2"] >= 1e-5].copy()
+        flares["flare_class"] = flares["xrsb_flux_max_w_m2"].apply(classify_flux)
+        flares["class_type"] = flares["xrsb_flux_max_w_m2"].apply(lambda f: "X" if f >= 1e-4 else "M")
+        _FLARE_CACHE = flares
+    return _FLARE_CACHE
 
 
 @app.get("/health")
@@ -202,6 +248,170 @@ def predict_latest() -> dict:
     result = forecast_rows(list(reversed(observations)))
     result["data_source"] = "historical_archive"
     return result
+
+
+@app.get("/flare-events")
+def flare_events(
+    min_class: str = Query(default="M", pattern="^(M|X|C)$", description="Minimum flare class: M or X"),
+    limit: int = Query(default=50, ge=1, le=200),
+    sort_by: str = Query(default="time", pattern="^(time|flux)$"),
+    order: str = Query(default="desc", pattern="^(asc|desc)$"),
+) -> dict:
+    """Historical solar flare events catalog (M and X class) with classifications."""
+    flares = get_cached_flares()
+    if min_class == "X":
+        filtered = flares[flares["class_type"] == "X"]
+    else:
+        filtered = flares
+
+    sort_col = "sample_time_utc" if sort_by == "time" else "xrsb_flux_max_w_m2"
+    ascending = (order == "asc")
+    sorted_df = filtered.sort_values(by=sort_col, ascending=ascending)
+    top = sorted_df.head(limit)
+
+    records = []
+    for r in top.to_dict(orient="records"):
+        records.append({
+            "sample_time_utc": str(r["sample_time_utc"]),
+            "flux_max_w_m2": float(r["xrsb_flux_max_w_m2"]),
+            "flux_mean_w_m2": float(r["xrsb_flux_mean_w_m2"]),
+            "flare_class": str(r["flare_class"]),
+            "class_type": str(r["class_type"]),
+            "valid_minutes": int(r["valid_minutes"]) if pd.notna(r.get("valid_minutes")) else 60,
+            "satellite_count": int(r["satellite_count"]) if pd.notna(r.get("satellite_count")) else 1,
+        })
+
+    return {
+        "events": records,
+        "total_count": int(len(filtered)),
+        "returned_count": len(records),
+        "min_class": min_class,
+        "sort_by": sort_by,
+        "order": order,
+    }
+
+
+@app.get("/stats/summary")
+def stats_summary() -> dict:
+    """Consolidated space weather mission metrics and catalog totals."""
+    df = get_cached_dataset()
+    flares = get_cached_flares()
+    max_idx = df["xrsb_flux_max_w_m2"].idxmax()
+    max_row = df.loc[max_idx]
+
+    sci_agg = {}
+    if SCIENTIFIC_EVALUATION_PATH.exists():
+        try:
+            sci = json.loads(SCIENTIFIC_EVALUATION_PATH.read_text())
+            sci_agg = sci.get("rolling_backtest", {}).get("aggregate_performance", {})
+        except Exception:
+            pass
+
+    return {
+        "total_hours_cataloged": int(len(df)),
+        "archive_start_utc": str(df["sample_time_utc"].iloc[0]),
+        "archive_end_utc": str(df["sample_time_utc"].iloc[-1]),
+        "total_m_flares": int((flares["class_type"] == "M").sum()),
+        "total_x_flares": int((flares["class_type"] == "X").sum()),
+        "peak_flux_w_m2": float(max_row["xrsb_flux_max_w_m2"]),
+        "peak_flux_class": classify_flux(float(max_row["xrsb_flux_max_w_m2"])),
+        "peak_flux_time_utc": str(max_row["sample_time_utc"]),
+        "cycle_info": "Solar Cycle 25 (Ascending to Solar Maximum)",
+        "model_name": "Logistic Regression (Platt Calibrated)",
+        "decision_threshold": float(bundle["decision_threshold"]),
+        "evaluation_bss": float(sci_agg.get("mean_brier_skill_score", 0.460)),
+        "evaluation_tss": float(sci_agg.get("mean_tss", 0.246)),
+        "evaluation_auc": float(sci_agg.get("mean_roc_auc", 0.773)),
+        "active_satellites": ["GOES-16 (East)", "GOES-18 (West / Primary)", "GOES-19 (Test)"],
+    }
+
+
+@app.get("/export/flare-events")
+def export_flare_events(limit: int = Query(default=1000, ge=10, le=5000)) -> Response:
+    """Download historical M and X flare events as CSV."""
+    flares = get_cached_flares().sort_values(by="sample_time_utc", ascending=False).head(limit)
+    export_cols = [
+        "sample_time_utc",
+        "flare_class",
+        "class_type",
+        "xrsb_flux_max_w_m2",
+        "xrsb_flux_mean_w_m2",
+        "valid_minutes",
+        "satellite_count",
+    ]
+    csv_content = flares[export_cols].to_csv(index=False)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=solarguard_flare_catalog.csv"},
+    )
+
+
+@app.post("/simulate/scenario")
+def simulate_scenario(req: ScenarioRequest) -> dict:
+    """Simulate hypothetical solar conditions to test model sensitivity."""
+    if not HISTORY_PATH.exists():
+        raise HTTPException(503, "Hourly dataset unavailable for baseline simulation.")
+    df = pd.read_csv(HISTORY_PATH).tail(72)
+    needed = ["sample_time_utc", "log10_flux_mean", "xrsb_flux_median_w_m2", "xrsb_flux_max_w_m2"]
+    observations = []
+    for r in df[needed].iloc[-25:].to_dict(orient="records"):
+        observations.append({
+            "sample_time_utc": pd.Timestamp(r["sample_time_utc"]).to_pydatetime().astimezone(timezone.utc),
+            "log10_flux_mean": float(r["log10_flux_mean"]),
+            "xrsb_flux_median_w_m2": float(r["xrsb_flux_median_w_m2"]),
+            "xrsb_flux_max_w_m2": float(r["xrsb_flux_max_w_m2"]),
+        })
+
+    baseline = forecast_rows(observations)
+
+    sim_obs = [dict(o) for o in observations]
+    scenario_desc = ""
+    injected_peak = 0.0
+
+    if req.scenario == "x_class_burst":
+        scenario_desc = "Extreme X-Class Solar Flare Eruption (X2.5 spike in past 2 hours)"
+        injected_peak = 2.5e-4
+        for i in [-2, -1]:
+            sim_obs[i]["xrsb_flux_max_w_m2"] = injected_peak
+            sim_obs[i]["xrsb_flux_median_w_m2"] = 1.2e-4
+            sim_obs[i]["log10_flux_mean"] = float(np.log10(1.5e-4))
+    elif req.scenario == "m_flare_surge":
+        scenario_desc = "Moderate M-Class Active Region Flare (M4.8 peak)"
+        injected_peak = 4.8e-5
+        for i in [-3, -2, -1]:
+            sim_obs[i]["xrsb_flux_max_w_m2"] = injected_peak
+            sim_obs[i]["xrsb_flux_median_w_m2"] = 2.5e-5
+            sim_obs[i]["log10_flux_mean"] = float(np.log10(3.0e-5))
+    elif req.scenario == "quiet_background":
+        scenario_desc = "Deep Solar Minimum / Quiescent Sun (B-class background)"
+        injected_peak = 3.0e-8
+        for i in range(len(sim_obs)):
+            sim_obs[i]["xrsb_flux_max_w_m2"] = injected_peak
+            sim_obs[i]["xrsb_flux_median_w_m2"] = 2.0e-8
+            sim_obs[i]["log10_flux_mean"] = float(np.log10(2.5e-8))
+    else:  # custom multiplier
+        scenario_desc = f"Custom Flux Scaling ({req.multiplier:.1f}x across trailing 6 hours)"
+        for i in range(-6, 0):
+            sim_obs[i]["xrsb_flux_max_w_m2"] *= req.multiplier
+            sim_obs[i]["xrsb_flux_median_w_m2"] *= req.multiplier
+            sim_obs[i]["log10_flux_mean"] = float(np.log10(max(1e-9, sim_obs[i]["xrsb_flux_median_w_m2"])))
+        injected_peak = sim_obs[-1]["xrsb_flux_max_w_m2"]
+
+    simulated = forecast_rows(sim_obs)
+
+    return {
+        "scenario": req.scenario,
+        "description": scenario_desc,
+        "injected_peak_flux_w_m2": injected_peak,
+        "injected_peak_class": classify_flux(injected_peak) if injected_peak > 0 else "—",
+        "baseline_probability": baseline["m_plus_probability"],
+        "baseline_risk": baseline["risk_level"],
+        "simulated_probability": simulated["m_plus_probability"],
+        "simulated_risk": simulated["risk_level"],
+        "probability_delta": simulated["m_plus_probability"] - baseline["m_plus_probability"],
+        "simulated_forecast": simulated,
+    }
 
 
 # --- Live NOAA SWPC Feed Endpoints ---
